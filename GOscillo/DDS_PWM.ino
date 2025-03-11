@@ -24,13 +24,9 @@ const char Wavename[][5] PROGMEM = {"Sine", "Saw", "RSaw", "Tri", "Rect",
   "PL20", "PL10", "PL05", "Dlta", "Nois", "GNoi", "ECG", "Snc1", "Snc2", "Snc3",
   "Sin2", "Sin3", "CSin", "Sabs", "Trpz", "Stp2", "Stp4", "Csaw"};
 const byte wave_num = (sizeof(wavetable) / sizeof(&sine256));
-long ifreq = 50000; // frequency * 100 for 0.01Hz resolution
+long ifreq = 23841; // frequency * 100 for 0.01Hz resolution
 byte wave_id = 0;
 #define DDSPin A0
-
-// 12-Bit D/A Converter
-#define DACBASE 0x40050000  // DAC Base - DAC output on A0 (P014 AN09 DAC)
-#define DAC12_DADR0 ((volatile unsigned short *)(DACBASE + 0xE000)) // D/A Data Register 0 
 
 double refclk=30000.0f;           // System clock is 48MHz
 
@@ -95,6 +91,19 @@ void set_wave(int id) {
 }
 
 //******************************************************************
+// Timer Interrupt Service at 30kHz = 33.3uSec
+// this is the timebase REFCLOCK for the DDS generator
+// FOUT = (M (REFCLK)) / (2 exp 32)
+// runtime : ? microseconds ( inclusive push and pop)
+void callbackfunc(timer_callback_args_t __attribute((unused)) *arg) {
+  phaccu=phaccu+tword_m;  // soft DDS, phase accu with 32 bits
+  icnt=phaccu >> 24;      // use upper 8 bits for phase accu as frequency information
+                          // read value fron ROM sine table and send to PWM DAC
+//  analogWrite(DAC, wp[icnt]);
+  R_DAC->DADR[0] = wp[icnt]<<4; // DAC update - takes 210nS - DAC ignores top 4 bits
+}
+
+//******************************************************************
 // Timer setup
 // set 30.0kHz clock
 void Setup_timer() {
@@ -107,19 +116,6 @@ void Setup_timer() {
   dtimer.setup_overflow_irq();
   dtimer.open();
   dtimer.start();
-}
-
-//******************************************************************
-// Timer Interrupt Service at 30kHz = 33.3uSec
-// this is the timebase REFCLOCK for the DDS generator
-// FOUT = (M (REFCLK)) / (2 exp 32)
-// runtime : ? microseconds ( inclusive push and pop)
-void callbackfunc(timer_callback_args_t *arg) {
-  phaccu=phaccu+tword_m;  // soft DDS, phase accu with 32 bits
-  icnt=phaccu >> 24;      // use upper 8 bits for phase accu as frequency information
-                          // read value fron ROM sine table and send to PWM DAC
-//  analogWrite(DAC, wp[icnt]);
-  *DAC12_DADR0 = wp[icnt]<<4;  // DAC update - takes 210nS - DAC ignores top 4 bits
 }
 
 void update_ifrq(long diff) {

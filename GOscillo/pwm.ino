@@ -6,25 +6,35 @@ PwmOut pwm(PWMPin);
 byte duty = 128;  // duty ratio = duty/256
 byte p_range = 0;
 unsigned short count;
-const long range_min[1] PROGMEM = {1};
-const long range_div[1] PROGMEM = {1};
+const long range_min[6] PROGMEM = {1, 16383, 16383, 16383, 16383, 16383};
+const long range_div[6] PROGMEM = {1, 4, 16, 64, 256, 1024};
+const timer_source_div_t source_div[6] PROGMEM = {TIMER_SOURCE_DIV_1, TIMER_SOURCE_DIV_4,
+  TIMER_SOURCE_DIV_16, TIMER_SOURCE_DIV_64, TIMER_SOURCE_DIV_256, TIMER_SOURCE_DIV_1024};
 
-double pulse_frq(void) {          // 31Hz <= freq <= 1MHz
+double pulse_frq(void) {          // 0.715Hz <= freq <= 24MHz
   long divide = range_div[p_range];
-  return(2000000.0d / ((double)((long)count + 1) * (double)divide));
+  return(sys_clk / ((double)((long)count + 1) * (double)divide));
+}
+
+uint32_t pulsew(void) {
+  if (count < 2)
+    return 1;
+  else
+    return map((unsigned short)duty, 0, 255, 0, count);
 }
 
 void pulse_init() {
   long divide;
-  p_range = 0;  // constrain(p_range, 0, 16);
+  p_range = constrain(p_range, 0, 5);
   divide = range_div[p_range];
-  float fduty = duty*100.0/256.0;
-  pwm.begin((float)pulse_frq(), fduty);
+//  float fduty = duty*100.0/256.0;
+//  pwm.begin((float)pulse_frq(), fduty);
+  pwm.begin(count + 1, pulsew(), true, source_div[p_range]);
 }
 
 void update_frq(int diff) {
   int fast;
-  long newCount;
+  long divide, newCount;
 
   if (abs(diff) > 3) {
     fast = 512;
@@ -45,17 +55,19 @@ void update_frq(int diff) {
       newCount = 65535;
     }
   } else if (newCount > 65535) {
-    if (p_range < 0) {
+    if (p_range < 5) {
       ++p_range;
       newCount = range_min[p_range];
     } else {
       newCount = 65535;
     }
   }
+  divide = range_div[p_range];
   count = newCount;
-  float fduty = duty*100.0/256.0;
   pwm.end();
-  pwm.begin((float)pulse_frq(), fduty);
+//  float fduty = duty*100.0/256.0;
+//  pwm.begin((float)pulse_frq(), fduty);
+  pwm.begin(count + 1, pulsew(), true, source_div[p_range]);
 }
 
 void disp_pulse_frq(void) {

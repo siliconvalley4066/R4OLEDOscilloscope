@@ -1,5 +1,5 @@
 /*
- * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.01
+ * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.02
  * The max sampling rates is 346ksps with single channel, 141ksps with 2 channels.
  * + Pulse Generator
  * + DAC DDS Function Generator (23 waveforms)
@@ -15,6 +15,7 @@
 
 //#define BUTTON5DIR
 #define DISPLAY_IS_SSD1306
+//#define DISPLAY_IS_SH1107V
 #define SCREEN_WIDTH   128              // OLED display width
 #define SCREEN_HEIGHT   64              // OLED display height
 #define OLED_RESET      -1      // Reset pin # (or -1 if sharing Arduino reset pin)
@@ -23,7 +24,11 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #else
 #include <Adafruit_SH110X.h>
+#ifdef DISPLAY_IS_SH1107V
+Adafruit_SH1107 display = Adafruit_SH1107(SCREEN_HEIGHT, SCREEN_WIDTH, &Wire, OLED_RESET);
+#else
 Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#endif
 #define WHITE 1
 #define BLACK 0
 #endif
@@ -156,6 +161,9 @@ void setup(){
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // select 3C or 3D (set your OLED I2C address)
 #else
   display.begin(0x3c, true);                  // initialise the library
+#ifdef DISPLAY_IS_SH1107V
+  display.setRotation(1);
+#endif
 #endif
 //  Wire.begin();
   Wire.setClock(400000);  // fSCL = 400kHz

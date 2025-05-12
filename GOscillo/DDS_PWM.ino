@@ -107,8 +107,10 @@ void callbackfunc(timer_callback_args_t __attribute((unused)) *arg) {
 // Timer setup
 // set 30.0kHz clock
 void Setup_timer() {
-  uint8_t type;
-  int8_t ch = FspTimer::get_available_timer(type);
+  static int8_t ch = 0;
+  uint8_t type = 0;
+  if (ch < 4)
+    ch = FspTimer::get_available_timer(type);
   if (ch < 0) {
     return;
   }

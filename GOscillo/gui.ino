@@ -112,9 +112,9 @@ void DrawText() {
       display.print("MSR2");
     else
       display.print("MSR1");
-//    set_line_color(6);
-//    display.print("FCNT");
-//    fcount_disp();
+    set_line_color(6);
+    display.print("FCNT");
+    fcount_disp();
     break;
   }
   if (info_mode & 3) {
@@ -445,10 +445,6 @@ void menu2_sw(byte sw) {
     break;
   case 5: // PWM
     if (sw == BTN_RIGHT) {        // +
-      if (fcount_mode == true) {  // stop frequency counter if active
-//        PeriodCount.end();
-        fcount_mode = false;
-      }
       update_frq(0);
 //      pulse_start();
       pulse_mode = true;
@@ -546,16 +542,15 @@ void menu3_sw(byte sw) {
     break;
   case 6: // Frequency Counter
     if (sw == BTN_RIGHT) {        // on
-      if (pulse_mode == true) {
-//        pulse_close();
-        pulse_mode = false;
+      if (fcount_mode) {
+        calib = true;
+      } else {
+        fcount_mode = true;
+        FreqCount.begin(1000);
       }
-      fcount_mode = true;
-//      PeriodCount.begin(1000);
-      set_range();
     } else if (sw == BTN_LEFT) {  // off
       fcount_mode = false;
-//      PeriodCount.end();
+      FreqCount.end();
     }
     break;
  }

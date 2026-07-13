@@ -1,9 +1,9 @@
 /*
- * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.03
+ * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.04
  * The max sampling rates is 346ksps with single channel, 141ksps with 2 channels.
  * + Pulse Generator
  * + DAC DDS Function Generator (23 waveforms)
- * Copyright (c) 2025, Siliconvalley4066
+ * Copyright (c) 2025,2026, Siliconvalley4066
  */
 /*
  * Arduino Oscilloscope using a graphic LCD
@@ -66,8 +66,8 @@ extern unsigned short count;
 extern long ifreq;
 extern byte wave_id;
 
-const int LCD_WIDTH = 128;
-const int LCD_HEIGHT = 64;
+#define LCD_WIDTH 128
+#define LCD_HEIGHT 64
 const int LCD_YMAX = 60;
 const int SAMPLES = 128;
 const int NSAMP = 512;
@@ -132,6 +132,8 @@ int trigger_ad;
 const double sys_clk = (double)F_CPU;
 volatile bool wfft, wdds;
 byte time_mag = 1;  // magnify timebase: 1, 2, 5 or 10
+int trigger_pos;
+int mag_pos = 0;
 double compensation = 1.0;  // compensation for frequency counter
 boolean calib = false;      // calibrate flag for frequency counter
 
@@ -149,6 +151,7 @@ boolean calib = false;      // calibrate flag for frequency counter
 #define CH2COLOR  WHITE
 #define TXTCOLOR  WHITE
 #define TRGCOLOR  WHITE
+#define HIGHCOLOR WHITE
 #define LED_ON    LOW
 #define LED_OFF   HIGH
 
@@ -169,7 +172,7 @@ void setup(){
 #endif
 #endif
 //  Wire.begin();
-  Wire.setClock(400000);  // fSCL = 400kHz
+  Wire.setClock(400000);
   delay(10);
 
 //  Serial.begin(115200); while(!Serial);
@@ -201,17 +204,17 @@ void DrawGrid() {
   if (full_screen) disp_leng = SAMPLES;
   else disp_leng = DISPLNG;
   for (int x=0; x<=disp_leng; x += 2) { // Horizontal Line
-    for (int y=0; y<=LCD_YMAX; y += DOTS_DIV) {
+    for (int y=LCD_YMAX; y>=0; y -= DOTS_DIV) {
       display.drawPixel(x, y, GRIDCOLOR);
-//      CheckSW();
     }
   }
+  CheckSW();
   for (int x=0; x<=disp_leng; x += DOTS_DIV ) { // Vertical Line
-    for (int y=0; y<=LCD_YMAX; y += 2) {
+    for (int y=LCD_YMAX; y>=0; y -= 2) {
       display.drawPixel(x, y, GRIDCOLOR);
-//      CheckSW();
     }
   }
+  CheckSW();
 }
 
 void fcount_disp() {
@@ -281,15 +284,19 @@ void display_ac(byte pin) {
 void set_line_color(byte line) {
   if ((item & 0x7) == line) display.setTextColor(BGCOLOR, TXTCOLOR);  // highlight
   else display.setTextColor(TXTCOLOR, BGCOLOR);           // normal
+#if LCD_HEIGHT == 64
   display.setCursor(DISPTXT, 8 * line); // locate curser for printing text
+#elif LCD_HEIGHT == 80
+  display.setCursor(DISPTXT, 10 * line + 1); // locate curser for printing text
+#endif
 }
 
 void DrawGrid(int x) {
   if ((x % DOTS_DIV) == 0) {
-    for (int y=0; y<=LCD_YMAX; y += 2)
+    for (int y=LCD_YMAX; y>=0; y -= 2)
       display.drawPixel(x, y, GRIDCOLOR);
   } else if ((x % 2) == 0)
-    for (int y=0; y<=LCD_YMAX; y += DOTS_DIV)
+    for (int y=LCD_YMAX; y>=0; y -= DOTS_DIV)
       display.drawPixel(x, y, GRIDCOLOR);
 }
 
@@ -344,23 +351,23 @@ void scaleDataArray(byte ad_ch, int trig_point)
   byte *pdata, ch_mode, range, ch;
   short ch_off;
   uint16_t *idata, *qdata;
-  long a, b;
+  long a;
 
+  trigger_pos = trig_point;
   if (ad_ch == ad_ch1) {
     ch_off = ch1_off;
     ch_mode = ch1_mode;
     range = range1;
-    pdata = data[sample+1];
     idata = &cap_buf1[trig_point];
     ch = 1;
   } else {
     ch_off = ch0_off;
     ch_mode = ch0_mode;
     range = range0;
-    pdata = data[sample+0];
     idata = &cap_buf[trig_point];
     ch = 0;
   }
+  pdata = data[sample+ch];
   for (int i = 0; i < SAMPLES; i++) {
     a = ((*idata + ch_off) * VREF[range] + 2048) >> 12;
     if (a > LCD_YMAX) a = LCD_YMAX;
@@ -375,10 +382,12 @@ void scaleDataArray(byte ad_ch, int trig_point)
     case 2:
     case 5:
     case 10:
-      mag(data[sample+ch], time_mag); // magnify timebase for display
+      mag_pos = constrain(mag_pos, 0, SAMPLES - SAMPLES/time_mag - 5);
+      mag(data[sample+ch], time_mag, mag_pos);  // magnify timebase for display
       break;
-    default:  // do nothing
+    default:
       time_mag = 1;   // fix odd value
+      mag_pos = 0;    // reset the position
       break;
     }
   }
@@ -523,16 +532,17 @@ void draw_screen() {
   } else {
     DrawGrid();
     ClearAndDrawGraph();
+    CheckSW();
     if (!full_screen) DrawText();
+    mag_bar();
   }
   display.display();
 }
 
-#define textINFO 54
+#define textINFO (DISPLNG-48)
 void measure_frequency(int ch) {
   int x1, x2;
   freqDuty(ch);
-  display.setTextColor(TXTCOLOR, BGCOLOR);
   display.setCursor(textINFO, txtLINE0);
   float freq = waveFreq[ch];
   if (freq < 999.5)
@@ -545,7 +555,7 @@ void measure_frequency(int ch) {
   }
   display.print("Hz");
   if (fft_mode) return;
-  display.setCursor(textINFO + 12, txtLINE1);
+  display.setCursor(textINFO + 18, txtLINE1);
   float duty = waveDuty[ch];
   if (duty > 99.9499) duty = 99.9;
   display.print(duty, 1);  display.print('%');
@@ -604,8 +614,12 @@ void sample_dual_ms(unsigned int r) { // dual channel. r > 500
 void plotFFT() {
   int ylim = LCD_HEIGHT - 8;
 
+  int j = 0;
+  if (rate <= RATE_DMA) {
+    j = trigger_pos;
+  }
   for (int i = 0; i < FFT_N; i++) {
-    vReal[i] = cap_buf[i];
+    vReal[i] = cap_buf[j++];
     vImag[i] = 0.0;
   }
   FFT.dcRemoval();
@@ -705,7 +719,7 @@ void set_default() {
   ch0_off = 0;
   range1 = RANGE_MIN;
   ch1_mode = MODE_ON;
-  ch1_off = 683;
+  ch1_off = 2048;
   rate = 6;
   trig_mode = TRIG_AUTO;
   trig_lv = 20;

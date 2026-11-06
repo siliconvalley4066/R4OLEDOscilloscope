@@ -1,16 +1,16 @@
 # R4OLEDOscilloscope
-Arduino UNO R4 Minima OLED dual channel oscilloscope with Pulse Generator, DDS Function Generator
+Arduino UNO R4 Minima OLED dual channel oscilloscope with Pulse Generator, DDS Function Generator, Frequency Counter
 
 <img src="DSC_0066.JPG">
 
 This displays an oscilloscope screen on a 128x64 OLED.
 The settings are controled by the 4 tactile switches.
-It contains Pulse Generator, DDS Function Generator.
+It contains Pulse Generator, DDS Function Generator, Frequency Counter.
 
 Specifications:
 <li>Dual input channel</li>
 <li>Input voltage range 0 to 5.0V</li>
-<li>12 bit ADC 346 ksps single channel, 141 ksps dual channel</li>
+<li>12 bit ADC 1.07 Msps single channel, 100 ksps dual channel</li>
 <li>timebase magnification x2, x5 and x10 applying sin(x)/x interpolation</li>
 <li>Measures minimum, maximum and average values</li>
 <li>Measures frequency and duty cycle</li>
@@ -22,8 +22,8 @@ Specifications:
 <br>
 <p>
 Develop environment is:<br>
-Arduino IDE 1.8.19<br>
-Arduino UNO R4 Boards by Arduino version 1.3.2<br>
+Arduino IDE 2.3.10<br>
+Arduino UNO R4 Boards by Arduino version 1.6.0<br>
 Arduino UNO R4 Minima<br>
 CPU speed 48MHz<br>
 </p>

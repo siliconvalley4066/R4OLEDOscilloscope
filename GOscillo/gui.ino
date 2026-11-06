@@ -23,7 +23,7 @@ void DrawText() {
     else if (time_mag == 5) display.print(" x5 ");
     else if (time_mag == 10) display.print("x10 ");
     else if (rate > RATE_DMA) display.print("real");
-    else display.print("scan");
+    else display.print("DMA");
     set_line_color(4);
     display_trig_mode();
     set_line_color(5);
@@ -259,11 +259,17 @@ void updown_rate(byte sw) {
     orate = rate;
     if (rate > 0) {
       rate --;
+      if (rate <= RATE_DMA)
+        adc_dmamode();
     }
   } else if (sw == BTN_LEFT) {  // RATE SLOW
     orate = rate;
     if (rate < RATE_MAX) {
       rate ++;
+      if (rate <= RATE_DMA)
+        adc_dmamode();
+      else
+        adc_arduino();
     } else {
       rate = RATE_MAX;
     }
@@ -373,12 +379,16 @@ void menu1_sw(byte sw) {
       else {
         ch0_mode = MODE_ON;
       }
+      if (rate <= RATE_DMA)
+        adc_dmamode();
     } else if (sw == BTN_LEFT) {  // CH0 - ON/OFF
       if (ch0_mode == MODE_OFF) {
         ch0_mode = MODE_ON;
       } else {
         ch0_mode = MODE_OFF;
       }
+      if (rate <= RATE_DMA)
+        adc_dmamode();
     }
     break;
   case 2: // CH0 voltage range
@@ -404,6 +414,8 @@ void menu1_sw(byte sw) {
         ch1_mode = MODE_INV;
       else
         ch1_mode = MODE_ON;
+      if (rate <= RATE_DMA)
+        adc_dmamode();
     } else if (sw == BTN_LEFT) {  // CH1 - ON/OFF
       if (rate < RATE_DUAL) {
         if (ch1_mode == MODE_OFF) {
@@ -418,6 +430,8 @@ void menu1_sw(byte sw) {
       } else {
         ch1_mode = MODE_OFF;
       }
+      if (rate <= RATE_DMA)
+        adc_dmamode();
     }
     break;
   case 6: // CH1 voltage range

@@ -1,8 +1,9 @@
 /*
- * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.04
- * The max sampling rates is 346ksps with single channel, 141ksps with 2 channels.
+ * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.05
+ * The max sampling rates is 1.07Msps with single channel, 100ksps with 2 channels.
  * + Pulse Generator
  * + DAC DDS Function Generator (23 waveforms)
+ * + Frequency Counter
  * Copyright (c) 2025,2026, Siliconvalley4066
  */
 /*
@@ -98,16 +99,16 @@ const char TRIG_Modes[4][5] PROGMEM = {"Auto", "Norm", "Scan", "One "};
 const int TRIG_E_UP = 0;
 const int TRIG_E_DN = 1;
 #define RATE_MIN 0
-#define RATE_MAX 17
-#define RATE_NUM 18
-#define RATE_DMA 0
-#define RATE_DUAL 1
-#define RATE_SLOW 7
-#define RATE_ROLL 13
+#define RATE_MAX 18
+#define RATE_NUM 19
+#define RATE_DMA 2
+#define RATE_DUAL 3
+#define RATE_SLOW 8
+#define RATE_ROLL 14
 #define ITEM_MAX 30
-const char Rates[RATE_NUM][5] PROGMEM = {"30us", "70us", "100u", "200u", "500u", " 1ms", " 2ms", " 5ms", "10ms", "20ms", "50ms", "0.1s", "0.2s", "0.5s", " 1s ", " 2s ", " 5s ", " 10s"};
-const unsigned long HREF[] PROGMEM = {30, 70, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000};
-const float dmahref[2] = {28.8, 70.7};
+const char Rates[RATE_NUM][5] PROGMEM = {"9.4u", "20us", "50us", "100u", "200u", "500u", " 1ms", " 2ms", " 5ms", "10ms", "20ms", "50ms", "0.1s", "0.2s", "0.5s", " 1s ", " 2s ", " 5s ", " 10s"};
+const unsigned long HREF[] PROGMEM = {10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000};
+const float dmahref[3] = {9.375, 20.0, 50.0};
 #define RANGE_MIN 0
 #define RANGE_MAX 4
 #define VRF 5.0
@@ -175,7 +176,7 @@ void setup(){
   Wire.setClock(400000);
   delay(10);
 
-//  Serial.begin(115200); while(!Serial);
+// Serial.begin(115200); while(!Serial);
 #ifdef EEPROM_START
   loadEEPROM();                         // read last settings from EEPROM
 #else
@@ -193,10 +194,7 @@ void setup(){
   if (dds_mode)
     dds_setup();
   orate = RATE_DMA + 1;                 // old rate befor change
-  analogReadResolution(12);
-  analogRead(A2); // dummy read for setup
-  analogRead(A1); // dummy read for setup
-//  adc_set_speed();
+  adc_set_speed();
 }
 
 void DrawGrid() {
@@ -460,9 +458,9 @@ void loop() {
   // sample and draw depending on the sampling rate
   if (rate < RATE_ROLL && Start) {
 
-    if (rate <= RATE_DMA) {         // min 2.89us sampling (346ksps)
-      sample_usf();                 // single channel sampling
-    } else if (rate < RATE_SLOW) {  // dual channel 7us, 10us, 20us, 50us, 100us, 200us sampling
+    if (rate <= RATE_DMA) {         // min 0.93us sampling (1.07Msps)
+      sample_dma();                 // single channel sampling
+    } else if (rate < RATE_SLOW) {  // dual channel 10us, 20us, 50us, 100us, 200us sampling
       sample_dual_usf(HREF[rate] / 10);
     } else {                // dual channel .5ms, 1ms, 2ms, 5ms, 10ms, 20ms sampling
       sample_dual_ms(HREF[rate] / 10);

@@ -108,7 +108,7 @@ void callbackfunc(timer_callback_args_t __attribute((unused)) *arg) {
 // set 30.0kHz clock
 void Setup_timer() {
   static int8_t ch = 0;
-  uint8_t type = 0;
+  uint8_t type = GPT_TIMER;
   if (ch < 4)
     ch = FspTimer::get_available_timer(type);
   if (ch < 0) {

@@ -10,6 +10,10 @@ static transfer_info_t dmacInfo;
 static transfer_cfg_t dmacCfg;
 static dmac_extended_cfg_t dmacExt;
 static dmac_instance_ctrl_t dmacCtrl;
+static transfer_info_t dmacInfo1;
+static transfer_cfg_t dmacCfg1;
+static dmac_extended_cfg_t dmacExt1;
+static dmac_instance_ctrl_t dmacCtrl1;
 static bool adc_timerdma = false;
 
 FspTimer adcTimer;
@@ -113,7 +117,10 @@ void adc_setup_for_dma(byte ad) {
   adc_cfg.p_extend = &adc_ext;
   R_ADC_Open(&adc_ctrl, &adc_cfg);
   adc_channel_cfg_t ch_cfg{};
-  ch_cfg.scan_mask = (1UL << ad);
+  if (rate < RATE_DUAL)
+    ch_cfg.scan_mask = (1UL << ad);
+  else
+    ch_cfg.scan_mask = (1UL << ADC_CHANNEL_0) | (1UL << ADC_CHANNEL_1);
   ch_cfg.sample_hold_mask = 1;
   ch_cfg.sample_hold_states = 24;
   R_ADC_ScanCfg(&adc_ctrl, &ch_cfg);
@@ -139,6 +146,25 @@ void dma_setup(byte ad, uint16_t *buffer) {
   // R_DMAC_Reset((transfer_ctrl_t *)&dmacCtrl, (void *)&adc_ctrl.p_reg->ADDR[ad],
   //              (void *)cap_buf, NSAMP / 2);
   // R_DMAC_Enable((transfer_ctrl_t *)&dmacCtrl);
+  if (rate < RATE_DUAL) {
+    R_DMAC_Disable((transfer_ctrl_t *)&dmacCtrl1);
+    return;
+  }
+  memset(&dmacInfo1, 0, sizeof(dmacInfo1));
+  dmacInfo1.p_src = (void *)&adc_ctrl.p_reg->ADDR[ADC_CHANNEL_1];
+  dmacInfo1.p_dest = (void *)cap_buf1;
+  dmacInfo1.length = NSAMP / 2;
+  dmacInfo1.transfer_settings_word_b.mode = TRANSFER_MODE_NORMAL;
+  dmacInfo1.transfer_settings_word_b.size = TRANSFER_SIZE_2_BYTE;
+  dmacInfo1.transfer_settings_word_b.irq = TRANSFER_IRQ_END;
+  dmacInfo1.transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_FIXED;
+  dmacInfo1.transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED;
+  dmacExt1.channel = 1;
+  dmacExt1.activation_source = ELC_EVENT_ADC0_SCAN_END;
+  dmacCfg1.p_info = &dmacInfo1;
+  dmacCfg1.p_extend = &dmacExt1;
+  R_DMAC_Open((transfer_ctrl_t *)&dmacCtrl1, &dmacCfg1);
+  R_DMAC_Reconfigure((transfer_ctrl_t *)&dmacCtrl1, &dmacInfo1);
 }
 
 void elc_setup() {
@@ -160,7 +186,7 @@ void adctimer_setup() {
 void sample_dma(void) {  // single channel full speed
   byte ch, ad;
   uint16_t *p;
-  if (ch0_mode == MODE_OFF && ch1_mode != MODE_OFF) {
+  if (ch0_mode == MODE_OFF && ch1_mode != MODE_OFF && rate < RATE_DUAL) {
     ch = ad_ch1;
     p = cap_buf1;
     ad = 1;
@@ -173,6 +199,11 @@ void sample_dma(void) {  // single channel full speed
   R_DMAC_Reset((transfer_ctrl_t *)&dmacCtrl, (void *)&adc_ctrl.p_reg->ADDR[ad],
                (void *)p, NSAMP / 2);
   R_DMAC_Enable((transfer_ctrl_t *)&dmacCtrl);
+  if (rate >= RATE_DUAL) {
+    R_DMAC_Reset((transfer_ctrl_t *)&dmacCtrl1, (void *)&adc_ctrl.p_reg->ADDR[1],
+                (void *)cap_buf1, NSAMP / 2);
+    R_DMAC_Enable((transfer_ctrl_t *)&dmacCtrl1);
+  }
   if (adc_timerdma) adcTimer.start();
   volatile uint16_t *end = &p[NSAMP / 2 - 1];
   while (*end == 0xAAAA)
@@ -180,12 +211,14 @@ void sample_dma(void) {  // single channel full speed
   if (adc_timerdma) adcTimer.stop();
   int t = trigger_point();
   scaleDataArray(ch, t);
+  if (rate >= RATE_DUAL)
+    scaleDataArray(ad_ch1, t);
 }
 
 void adc_dmamode() {
   byte ad;
   uint16_t *p;
-  if (ch0_mode == MODE_OFF && ch1_mode != MODE_OFF) {
+  if (ch0_mode == MODE_OFF && ch1_mode != MODE_OFF && rate < RATE_DUAL) {
     p = cap_buf1;
     ad = ADC_CHANNEL_1;
   } else {

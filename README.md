@@ -10,7 +10,7 @@ It contains Pulse Generator, DDS Function Generator, Frequency Counter.
 Specifications:
 <li>Dual input channel</li>
 <li>Input voltage range 0 to 5.0V</li>
-<li>12 bit ADC 1.07 Msps single channel, 100 ksps dual channel</li>
+<li>12 bit ADC 1.07 Msps single channel, 200 ksps dual channel</li>
 <li>timebase magnification x2, x5 and x10 applying sin(x)/x interpolation</li>
 <li>Measures minimum, maximum and average values</li>
 <li>Measures frequency and duty cycle</li>

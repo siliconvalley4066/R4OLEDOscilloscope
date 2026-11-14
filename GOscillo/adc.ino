@@ -15,6 +15,7 @@ static transfer_cfg_t dmacCfg1;
 static dmac_extended_cfg_t dmacExt1;
 static dmac_instance_ctrl_t dmacCtrl1;
 static bool adc_timerdma = false;
+volatile bool dma0_done = false;
 
 FspTimer adcTimer;
 
@@ -127,6 +128,10 @@ void adc_setup_for_dma(byte ad) {
   adc_ctrl.p_reg->ADCSR_b.TRGE = adc_timerdma ? 1 : 0;
 }
 
+void dmac0_callback(dmac_callback_args_t *cb_data) {
+  dma0_done = true;
+}
+
 void dma_setup(byte ad, uint16_t *buffer) {
   memset(&dmacInfo, 0, sizeof(dmacInfo));
   dmacInfo.p_src = (void *)&adc_ctrl.p_reg->ADDR[ad];
@@ -139,7 +144,12 @@ void dma_setup(byte ad, uint16_t *buffer) {
   dmacInfo.transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED;
   dmacExt.channel = 0;
   dmacExt.activation_source = ELC_EVENT_ADC0_SCAN_END;
-  dmacCfg.p_info = &dmacInfo;
+  dmacExt.irq = FSP_INVALID_VECTOR;
+  dmacExt.ipl = BSP_IRQ_DISABLED;
+  dmacExt.p_callback = dmac0_callback;
+  dmacExt.p_context = nullptr;
+  IRQManager::getInstance().addDMA(dmacExt);
+dmacCfg.p_info = &dmacInfo;
   dmacCfg.p_extend = &dmacExt;
   R_DMAC_Open((transfer_ctrl_t *)&dmacCtrl, &dmacCfg);
   R_DMAC_Reconfigure((transfer_ctrl_t *)&dmacCtrl, &dmacInfo);
@@ -195,7 +205,7 @@ void sample_dma(void) {  // single channel full speed
     p = cap_buf;
     ad = 0;
   }
-  p[NSAMP / 2 - 1] = 0xAAAA;
+  dma0_done = false;
   R_DMAC_Reset((transfer_ctrl_t *)&dmacCtrl, (void *)&adc_ctrl.p_reg->ADDR[ad],
                (void *)p, NSAMP / 2);
   R_DMAC_Enable((transfer_ctrl_t *)&dmacCtrl);
@@ -205,8 +215,7 @@ void sample_dma(void) {  // single channel full speed
     R_DMAC_Enable((transfer_ctrl_t *)&dmacCtrl1);
   }
   if (adc_timerdma) adcTimer.start();
-  volatile uint16_t *end = &p[NSAMP / 2 - 1];
-  while (*end == 0xAAAA)
+  while (!dma0_done)
     ;
   if (adc_timerdma) adcTimer.stop();
   int t = trigger_point();

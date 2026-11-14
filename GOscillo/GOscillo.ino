@@ -1,5 +1,5 @@
 /*
- * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.06
+ * Arduino UNO R4 Oscilloscope using a 128x64 OLED Version 1.07
  * The max sampling rates is 1.07Msps with single channel, 100ksps with 2 channels.
  * + Pulse Generator
  * + DAC DDS Function Generator (23 waveforms)
